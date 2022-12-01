@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::error::Error;
 use std::fs::create_dir_all;
-use std::fs::remove_dir_all;
 use std::fs::remove_file;
 use std::fs::write;
 use std::fs::File;
@@ -18,7 +17,7 @@ struct Args {
     savepath: Option<String>,
 
     #[arg(short, long)]
-    requirements_path: Option<String>,
+    requirements: Option<String>,
 }
 
 struct SemanticVersioning {
@@ -37,7 +36,7 @@ fn make_semantic_versioning(ver: &String) -> SemanticVersioning {
     return sv;
 }
 
-fn distribute(pyversion: &String, savepath: &String, requirements_path: Option<String>) {
+fn distribute(pyversion: &String, savepath: &String, requirements: Option<String>) {
     let sv = make_semantic_versioning(pyversion);
     let zipfilepath = format!("python-{}-embed-amd64.zip", pyversion);
     download(
@@ -81,7 +80,7 @@ fn distribute(pyversion: &String, savepath: &String, requirements_path: Option<S
         .status()
         .expect("failed to execute process");
 
-    match requirements_path {
+    match requirements {
         Some(path) => {
             Command::new("cmd")
                 .arg("/C")
@@ -105,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(path) => path,
         None => format!("./python-{}-embed-amd64", args.pyversion),
     };
-    distribute(&args.pyversion, &savepath, args.requirements_path);
+    distribute(&args.pyversion, &savepath, args.requirements);
     Ok(())
 }
 
@@ -119,13 +118,11 @@ pub fn download(url: String, savepath: String) {
 #[cfg(test)]
 mod tests {
     use crate::distribute;
-    use std::{process::Command, fs::remove_dir_all};
-    use std::fs::{write, remove_file};
+    use std::fs::{remove_file, write};
+    use std::{fs::remove_dir_all, process::Command};
 
     fn run_test(pyversion: &String) {
-        let body = format!(
-            "requests",
-        );
+        let body = format!("requests",);
 
         write(format!("{}_requirements.txt", pyversion), body).unwrap();
         distribute(
@@ -134,11 +131,14 @@ mod tests {
             Some(format!("{}_requirements.txt", pyversion)),
         );
 
-        let status = Command::new(format!("test_{}\\python-{}-embed-amd64\\python.exe", pyversion, pyversion))
-            .arg("-c")
-            .arg("try:\n\timport requests\nexcept:\n\traise")
-            .status()
-            .expect("failed to execute process");
+        let status = Command::new(format!(
+            "test_{}\\python-{}-embed-amd64\\python.exe",
+            pyversion, pyversion
+        ))
+        .arg("-c")
+        .arg("try:\n\timport requests\nexcept:\n\traise")
+        .status()
+        .expect("failed to execute process");
         assert!(status.success());
         remove_file(format!("{}_requirements.txt", pyversion)).unwrap();
         remove_dir_all(format!("test_{}", pyversion)).unwrap();
