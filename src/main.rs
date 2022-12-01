@@ -1,17 +1,24 @@
 use clap::Parser;
 use std::error::Error;
-use std::path::Path;
-use tokio::fs::create_dir;
-use tokio::fs::write;
-use tokio::fs::File;
-use tokio::io;
-use tokio::process::Command;
+use std::fs::create_dir_all;
+use std::fs::remove_dir_all;
+use std::fs::remove_file;
+use std::fs::write;
+use std::fs::File;
+use std::io;
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
     pyversion: String,
+
+    #[arg(short, long)]
+    savepath: Option<String>,
+
+    #[arg(short, long)]
+    requirements_path: Option<String>,
 }
 
 struct SemanticVersioning {
@@ -30,64 +37,125 @@ fn make_semantic_versioning(ver: &String) -> SemanticVersioning {
     return sv;
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
-    let sv = make_semantic_versioning(&args.pyversion);
+fn distribute(pyversion: &String, savepath: &String, requirements_path: Option<String>) {
+    let sv = make_semantic_versioning(pyversion);
+    let zipfilepath = format!("python-{}-embed-amd64.zip", pyversion);
     download(
         format!(
             "https://www.python.org/ftp/python/{}/python-{}-embed-amd64.zip",
-            args.pyversion, args.pyversion
+            pyversion, pyversion
         )
         .to_string(),
-        format!("python-{}-embed-amd64.zip", args.pyversion).to_string(),
-    )
-    .await?;
-    if Path::new(&format!("./python-{}-embed-amd64", args.pyversion)).is_dir() == false {
-        create_dir(format!("./python-{}-embed-amd64", args.pyversion)).await?;
-    }
-
-    let mut child = Command::new("tar")
-        .arg("-xf")
-        .arg(format!("python-{}-embed-amd64.zip", args.pyversion))
-        .arg("-C")
-        .arg(format!("./python-{}-embed-amd64", args.pyversion))
-        .spawn()
-        .expect("failed to execute process");
-    child.wait().await?;
-
-    let path = format!(
-        "./python-{}-embed-amd64/python{}{}._pth",
-        args.pyversion, sv.major, sv.minor
+        zipfilepath.to_string(),
     );
+    match create_dir_all(savepath) {
+        Ok(_) => (),
+        Err(_) => panic!("A folder already exists at the savepath you specify."),
+    };
+    Command::new("tar")
+        .arg("-xf")
+        .arg(&zipfilepath)
+        .arg("-C")
+        .arg(savepath)
+        .output()
+        .expect("failed to execute process");
+    remove_file(&zipfilepath).unwrap();
+
+    let path = format!("{}/python{}{}._pth", savepath, sv.major, sv.minor);
 
     let body = format!(
         "python{}{}.zip\n.\n\n# Uncomment to run site.main() automatically\nimport site",
         sv.major, sv.minor
     );
-    write(path, body).await?;
+    write(path, body).unwrap();
 
     download(
         "https://bootstrap.pypa.io/get-pip.py".to_string(),
-        format!("python-{}-embed-amd64/get-pip.py", args.pyversion).to_string(),
-    )
-    .await?;
+        format!("{}/get-pip.py", savepath).to_string(),
+    );
 
-    let mut get_pip = Command::new("cmd")
+    Command::new("cmd")
         .arg("/C")
-        .arg(format!("python-{}-embed-amd64\\python.exe", args.pyversion))
-        .arg(format!("python-{}-embed-amd64\\get-pip.py", args.pyversion))
-        .spawn()
+        .arg(format!("{}\\python.exe", savepath.replace("/", "\\")))
+        .arg(format!("{}\\get-pip.py", savepath.replace("/", "\\")))
+        .status()
         .expect("failed to execute process");
-    get_pip.wait().await?;
 
+    match requirements_path {
+        Some(path) => {
+            Command::new("cmd")
+                .arg("/C")
+                .arg(format!("{}\\python.exe", savepath.replace("/", "\\")))
+                .arg("-m")
+                .arg("pip")
+                .arg("install")
+                .arg("-r")
+                .arg(path.replace("/", "\\"))
+                .output()
+                .expect("failed to execute process");
+        }
+        None => (),
+    }
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
+    let savepath = match args.savepath {
+        Some(path) => path,
+        None => format!("./python-{}-embed-amd64", args.pyversion),
+    };
+    distribute(&args.pyversion, &savepath, args.requirements_path);
     Ok(())
 }
 
-async fn download(url: String, savepath: String) -> Result<(), Box<dyn Error>> {
-    let response = reqwest::get(&url).await?;
-    let bytes = response.bytes().await?;
-    let mut out = File::create(savepath).await?;
-    io::copy(&mut bytes.as_ref(), &mut out).await?;
-    Ok(())
+pub fn download(url: String, savepath: String) {
+    let response = reqwest::blocking::get(&url).expect("wrong url");
+    let bytes = response.bytes().unwrap();
+    let mut out = File::create(savepath).expect("path");
+    io::copy(&mut bytes.as_ref(), &mut out).expect("copy failed");
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::distribute;
+    use std::{process::Command, fs::remove_dir_all};
+    use std::fs::{write, remove_file};
+
+    fn run_test(pyversion: &String) {
+        let body = format!(
+            "requests",
+        );
+
+        write(format!("{}_requirements.txt", pyversion), body).unwrap();
+        distribute(
+            &pyversion,
+            &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
+            Some(format!("{}_requirements.txt", pyversion)),
+        );
+
+        let status = Command::new(format!("test_{}\\python-{}-embed-amd64\\python.exe", pyversion, pyversion))
+            .arg("-c")
+            .arg("try:\n\timport requests\nexcept:\n\traise")
+            .status()
+            .expect("failed to execute process");
+        assert!(status.success());
+        remove_file(format!("{}_requirements.txt", pyversion)).unwrap();
+        remove_dir_all(format!("test_{}", pyversion)).unwrap();
+    }
+
+    #[test]
+    fn test_3_11_0() {
+        run_test(&"3.11.0".to_string());
+    }
+
+    #[test]
+    fn test_3_10_8() {
+        run_test(&"3.10.8".to_string());
+    }
+
+    #[test]
+    fn test_3_10_7() {
+        run_test(&"3.10.7".to_string());
+    }
 }
