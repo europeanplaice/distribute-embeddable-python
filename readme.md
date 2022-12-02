@@ -5,6 +5,10 @@
 The embeddable package is intended for acting as part of another application and 
 doesn't even include `pip` at the time it is downloaded from python.org. This library downloads the embeddable python and configures it so that you can use with strong third party libraries out-of-the-box. If you prefer, it can compress the embeddable package folder to a zipfile and you can easily pass it to others.
 
+## Demo
+
+https://user-images.githubusercontent.com/38364983/205297243-6a1b698b-4b8b-40c8-b4c9-fa1b69d7aeea.mp4
+
 
 ## What it does inside
 * Downloads the embeddable python from python.org and unzip
