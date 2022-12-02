@@ -5,6 +5,7 @@ use std::fs::remove_file;
 use std::fs::write;
 use std::fs::File;
 use std::io;
+use std::path::Path;
 use std::process::Command;
 
 #[derive(Parser)]
@@ -18,6 +19,9 @@ struct Args {
 
     #[arg(short, long)]
     requirements: Option<String>,
+
+    #[arg(short, long)]
+    compress: bool,
 }
 
 struct SemanticVersioning {
@@ -28,6 +32,9 @@ struct SemanticVersioning {
 
 fn make_semantic_versioning(ver: &String) -> SemanticVersioning {
     let splited = ver.split(".");
+    if splited.clone().collect::<Vec<&str>>().len() != 3 {
+        panic!("version must be [major].[minor].[patch]")
+    }
     let sv = SemanticVersioning {
         major: splited.clone().nth(0).unwrap().to_string(),
         minor: splited.clone().nth(1).unwrap().to_string(),
@@ -36,7 +43,12 @@ fn make_semantic_versioning(ver: &String) -> SemanticVersioning {
     return sv;
 }
 
-fn distribute(pyversion: &String, savepath: &String, requirements: Option<String>) {
+fn distribute(
+    pyversion: &String,
+    savepath: &String,
+    requirements: Option<String>,
+    compress: bool,
+) -> Result<(), io::Error> {
     let sv = make_semantic_versioning(pyversion);
     let zipfilepath = format!("python-{}-embed-amd64.zip", pyversion);
     download(
@@ -47,10 +59,10 @@ fn distribute(pyversion: &String, savepath: &String, requirements: Option<String
         .to_string(),
         zipfilepath.to_string(),
     );
-    match create_dir_all(savepath) {
-        Ok(_) => (),
-        Err(_) => panic!("A folder already exists at the savepath you specify."),
-    };
+    if Path::new(savepath).is_dir() {
+        panic!("A folder may already exist at the savepath you specified.");
+    }
+    create_dir_all(savepath).unwrap();
     Command::new("tar")
         .arg("-xf")
         .arg(&zipfilepath)
@@ -95,6 +107,22 @@ fn distribute(pyversion: &String, savepath: &String, requirements: Option<String
         }
         None => (),
     }
+
+    if compress == true {
+        Command::new("tar.exe")
+            .arg("-C")
+            .arg(savepath.replace("/", "\\"))
+            .arg("-caf")
+            .arg(format!(
+                "{}.zip",
+                savepath.replace("/", "\\").split("\\").last().unwrap()
+            ))
+            .arg("*")
+            .output()
+            .expect("failed to execute process");
+        std::fs::remove_dir_all(savepath.replace("/", "\\")).unwrap();
+    }
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -104,7 +132,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(path) => path,
         None => format!("./python-{}-embed-amd64", args.pyversion),
     };
-    distribute(&args.pyversion, &savepath, args.requirements);
+    distribute(&args.pyversion, &savepath, args.requirements, args.compress)?;
     Ok(())
 }
 
@@ -122,21 +150,23 @@ mod tests {
     use std::{fs::remove_dir_all, process::Command};
 
     fn run_test(pyversion: &String) {
-        let body = format!("requests",);
+        let body = format!("numpy",);
 
         write(format!("{}_requirements.txt", pyversion), body).unwrap();
         distribute(
             &pyversion,
             &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
             Some(format!("{}_requirements.txt", pyversion)),
-        );
+            false,
+        )
+        .unwrap();
 
         let status = Command::new(format!(
             "test_{}\\python-{}-embed-amd64\\python.exe",
             pyversion, pyversion
         ))
         .arg("-c")
-        .arg("try:\n\timport requests\nexcept:\n\traise")
+        .arg("try:\n\timport numpy\nexcept:\n\traise")
         .status()
         .expect("failed to execute process");
         assert!(status.success());
@@ -155,7 +185,15 @@ mod tests {
     }
 
     #[test]
-    fn test_3_10_7() {
-        run_test(&"3.10.7".to_string());
+    fn test_3_9_13() {
+        run_test(&"3.9.13".to_string());
+    }
+    #[test]
+    fn test_3_8_10() {
+        run_test(&"3.8.10".to_string());
+    }
+    #[test]
+    fn test_3_7_9() {
+        run_test(&"3.7.9".to_string());
     }
 }
