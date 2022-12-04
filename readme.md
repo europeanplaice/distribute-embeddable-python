@@ -18,6 +18,7 @@ https://user-images.githubusercontent.com/38364983/205297243-6a1b698b-4b8b-40c8-
 * (Optional) compresses the python into single zip file.
 
 ## Download python with pip
+The python executables with pip installed available.
 |version|link
 |--|--|
 |3.11.0|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.11.0/python-3.11.0-embed-amd64.zip
