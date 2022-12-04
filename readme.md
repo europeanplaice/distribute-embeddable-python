@@ -17,7 +17,16 @@ https://user-images.githubusercontent.com/38364983/205297243-6a1b698b-4b8b-40c8-
 * (Optional) installs other packages in `requirements.txt`
 * (Optional) compresses the python into single zip file.
 
-## Usage
+## Download python with pip
+|version|link
+|--|--|
+|3.11.0|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.11.0/python-3.11.0-embed-amd64.zip
+|3.10.8|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.10.8/python-3.10.8-embed-amd64.zip
+|3.9.13|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.9.13/python-3.9.13-embed-amd64.zip
+|3.8.10|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.8.10/python-3.8.10-embed-amd64.zip
+|3.7.9|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.7.9/python-3.7.9-embed-amd64.zip
+
+## Make your own python with pip and libraries
 1. Install Rust from https://www.rust-lang.org/
 2. Clone this repository and change your current directory to this repo
 3. Build Rust and make an executable
