@@ -48,6 +48,10 @@ without `--savepath`, the folder is created in your current directory as `python
 ### example
 `distribute_embeddable_python.exe --pyversion 3.10.8 --compress`
 
+## How to install libraries manually
+Because PATH of the embeddable python or pip is not added, you can't call pip as you usually do like `pip install numpy`. 
+
+Instead, you call pip from the path of python such as `python-3.11.0-embed-amd64\python.exe -m pip install numpy`
 
 ## Test
 
