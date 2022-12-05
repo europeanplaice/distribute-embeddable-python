@@ -18,7 +18,7 @@ https://user-images.githubusercontent.com/38364983/205297243-6a1b698b-4b8b-40c8-
 * (Optional) compresses the python into single zip file.
 
 ## Download python with pip
-The python executables with pip installed available.
+The python executables with pip installed available (Only amd64).
 |version|link
 |--|--|
 |3.11.0|https://github.com/europeanplaice/distribute-embeddable-python/releases/download/v3.11.0/python-3.11.0-embed-amd64.zip
@@ -36,15 +36,17 @@ The python executables with pip installed available.
 4. Run the executable
 
 ```
-distribute_embeddable_python.exe [OPTIONS] --pyversion <PYVERSION>
+Usage: distribute_embeddable_python.exe [OPTIONS] --pyversion <PYVERSION>
 
 Options:
-  -p, --pyversion: <PYVERSION> python version e.g. 3.11.0
-  -s, --savepath: <SAVEPATH> (optional) where to save the configured python
-  -r, --requirements: <REQUIREMENTS> (optional) requirements.txt path to install libraries from
-  -c, --compress: (optional) compresses the python into single zip file.
+  -p, --pyversion <PYVERSION>        Python version e.g. 3.11.0
+      --cpu <CPU>                    Cpu type to install. it must be 'win32' or 'amd64' or 'arm64' (arm64 only if pyversion >= 3.11). Defaults to 'amd64'
+  -s, --savepath <SAVEPATH>          where to save the python. Defaults to './python-{pyversion}-embed-{cpu}'
+  -r, --requirements <REQUIREMENTS>  requirements.txt path to install libraries from. if not specified, no libraries will be installed
+  -c, --compress                     if true it compresses the python into single zip file
+  -h, --help                         Print help information
+  -V, --version                      Print version information
 ```
-without `--savepath`, the folder is created in your current directory as `python-{pyversion}-embed-amd64`.
 
 ### example
 `distribute_embeddable_python.exe --pyversion 3.10.8 --compress`
