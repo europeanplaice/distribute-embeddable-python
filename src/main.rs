@@ -11,15 +11,23 @@ use std::process::Command;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    /// Python version e.g. 3.11.0
     #[arg(short, long)]
     pyversion: String,
 
+    /// Cpu type to install. it must be 'win32' or 'amd64' or 'arm64' (arm64 only if pyversion >= 3.11). Defaults to 'amd64'
+    #[arg(long)]
+    cpu: Option<String>,
+
+    /// where to save the python. Defaults to './python-{pyversion}-embed-{cpu}'
     #[arg(short, long)]
     savepath: Option<String>,
 
+    /// requirements.txt path to install libraries from. if not specified, no libraries will be installed.
     #[arg(short, long)]
     requirements: Option<String>,
 
+    /// if true it compresses the python into single zip file
     #[arg(short, long)]
     compress: bool,
 }
@@ -45,16 +53,17 @@ fn make_semantic_versioning(ver: &String) -> SemanticVersioning {
 
 fn distribute(
     pyversion: &String,
+    cpu: &String,
     savepath: &String,
     requirements: Option<String>,
     compress: bool,
 ) -> Result<(), io::Error> {
     let sv = make_semantic_versioning(pyversion);
-    let zipfilepath = format!("python-{}-embed-amd64.zip", pyversion);
+    let zipfilepath = format!("python-{}-embed-{}.zip", pyversion, cpu);
     download(
         format!(
-            "https://www.python.org/ftp/python/{}/python-{}-embed-amd64.zip",
-            pyversion, pyversion
+            "https://www.python.org/ftp/python/{}/python-{}-embed-{}.zip",
+            pyversion, pyversion, cpu
         )
         .to_string(),
         zipfilepath.to_string(),
@@ -128,11 +137,23 @@ fn distribute(
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
+    let cpu = match args.cpu {
+        Some(cpu) => cpu,
+        None => "amd64".to_string(),
+    };
+
     let savepath = match args.savepath {
         Some(path) => path,
-        None => format!("./python-{}-embed-amd64", args.pyversion),
+        None => format!("./python-{}-embed-{}", args.pyversion, cpu),
     };
-    distribute(&args.pyversion, &savepath, args.requirements, args.compress)?;
+
+    distribute(
+        &args.pyversion,
+        &cpu,
+        &savepath,
+        args.requirements,
+        args.compress,
+    )?;
     Ok(())
 }
 
@@ -155,6 +176,7 @@ mod tests {
         write(format!("{}_requirements.txt", pyversion), body).unwrap();
         distribute(
             &pyversion,
+            &"amd64".to_string(),
             &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
             Some(format!("{}_requirements.txt", pyversion)),
             false,
