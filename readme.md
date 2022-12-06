@@ -15,9 +15,9 @@ https://user-images.githubusercontent.com/38364983/205297243-6a1b698b-4b8b-40c8-
 * Enables `import site`
 * Downloads `get-pip.py` and install `pip`
 * (Optional) installs other packages in `requirements.txt`
-* (Optional) compresses the python into single zip file.
+* (Optional) compresses the python into a single zip file.
 
-## Download python with pip
+## Download embeddable python with pip installed
 The python executables with pip installed available (Only amd64).
 |version|link
 |--|--|
@@ -43,18 +43,20 @@ Options:
       --cpu <CPU>                    Cpu type to install. it must be 'win32' or 'amd64' or 'arm64' (arm64 only if pyversion >= 3.11). Defaults to 'amd64'
   -s, --savepath <SAVEPATH>          where to save the python. Defaults to './python-{pyversion}-embed-{cpu}'
   -r, --requirements <REQUIREMENTS>  requirements.txt path to install libraries from. if not specified, no libraries will be installed
-  -c, --compress                     if true it compresses the python into single zip file
+  -i, --install <INSTALL>            libraries to install. If you install multiple libraries, the command must be surrounded by "". This is ignored if requirements is set.
+  -c, --compress                     if true it compresses the python into a single zip file.
   -h, --help                         Print help information
   -V, --version                      Print version information
 ```
 
 ### example
-`distribute_embeddable_python.exe --pyversion 3.10.8 --compress`
+`distribute_embeddable_python.exe --pyversion 3.10.8 --compress --install "pandas numpy tqdm" `
+`distribute_embeddable_python.exe --pyversion 3.10.8 --requirements ./requirements.txt `
 
 ## How to install libraries manually
 Because PATH of the embeddable python or pip is not added, you can't call pip as you usually do like `pip install numpy`. 
 
-Instead, you call pip from the path of python such as `python-3.11.0-embed-amd64\python.exe -m pip install numpy`
+Instead, you can call pip from the path of python such as `python-3.11.0-embed-amd64\python.exe -m pip install numpy`
 
 ## Test
 

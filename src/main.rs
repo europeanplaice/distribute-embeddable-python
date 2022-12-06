@@ -27,7 +27,12 @@ struct Args {
     #[arg(short, long)]
     requirements: Option<String>,
 
-    /// if true it compresses the python into single zip file
+    /// libraries to install. If you install multiple libraries, the command must be surrounded by "".
+    /// This is ignored if requirements is set.
+    #[arg(short, long, action = clap::ArgAction::Append)]
+    install: Option<String>,
+
+    /// if true it compresses the python into a single zip file
     #[arg(short, long)]
     compress: bool,
 }
@@ -56,6 +61,7 @@ fn distribute(
     cpu: &String,
     savepath: &String,
     requirements: Option<String>,
+    install: Option<String>,
     compress: bool,
 ) -> Result<(), io::Error> {
     let sv = make_semantic_versioning(pyversion);
@@ -114,7 +120,20 @@ fn distribute(
                 .output()
                 .expect("failed to execute process");
         }
-        None => (),
+        None => match install {
+            Some(libraries) => {
+                Command::new("cmd")
+                    .arg("/C")
+                    .arg(format!("{}\\python.exe", savepath.replace("/", "\\")))
+                    .arg("-m")
+                    .arg("pip")
+                    .arg("install")
+                    .arg(libraries)
+                    .output()
+                    .expect("failed to execute process");
+            }
+            None => (),
+        },
     }
 
     if compress == true {
@@ -146,12 +165,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(path) => path,
         None => format!("./python-{}-embed-{}", args.pyversion, cpu),
     };
-
     distribute(
         &args.pyversion,
         &cpu,
         &savepath,
         args.requirements,
+        args.install,
         args.compress,
     )?;
     Ok(())
@@ -179,6 +198,7 @@ mod tests {
             &"amd64".to_string(),
             &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
             Some(format!("{}_requirements.txt", pyversion)),
+            None,
             false,
         )
         .unwrap();
