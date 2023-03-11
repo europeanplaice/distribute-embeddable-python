@@ -29,7 +29,7 @@ struct Args {
 
     /// libraries to install. If you install multiple libraries, the command must be surrounded by "".
     /// This is ignored if requirements is set.
-    #[arg(short, long, action = clap::ArgAction::Append)]
+    #[arg(short, long)]
     install: Option<String>,
 
     /// if true it compresses the python into a single zip file
@@ -107,8 +107,10 @@ fn distribute(
         .status()
         .expect("failed to execute process");
 
+    println!("requirements: {:?}", requirements);
+    
     match requirements {
-        Some(path) => {
+        Some(_path) => {
             Command::new("cmd")
                 .arg("/C")
                 .arg(format!("{}\\python.exe", savepath.replace("/", "\\")))
@@ -116,24 +118,30 @@ fn distribute(
                 .arg("pip")
                 .arg("install")
                 .arg("-r")
-                .arg(path.replace("/", "\\"))
+                .arg(_path.replace("/", "\\"))
                 .output()
                 .expect("failed to execute process");
-        }
-        None => match install {
+        },
+        None => {
+            println!("install: {:?}", install);
+            match install {
             Some(libraries) => {
-                Command::new("cmd")
-                    .arg("/C")
+                println!("begin install");
+                let splitted_lib = libraries.split(" ");
+                let mut com = Command::new("cmd");
+                com.arg("/C")
                     .arg(format!("{}\\python.exe", savepath.replace("/", "\\")))
                     .arg("-m")
                     .arg("pip")
-                    .arg("install")
-                    .arg(libraries)
-                    .output()
+                    .arg("install");
+                for lib in splitted_lib {
+                    com.arg(lib);
+                }
+                com.output()
                     .expect("failed to execute process");
-            }
+            },
             None => (),
-        },
+        }},
     }
 
     if compress == true {
@@ -189,53 +197,75 @@ mod tests {
     use std::fs::{remove_file, write};
     use std::{fs::remove_dir_all, process::Command};
 
-    fn run_test(pyversion: &String) {
-        let body = format!("numpy",);
-
-        write(format!("{}_requirements.txt", pyversion), body).unwrap();
-        distribute(
-            &pyversion,
-            &"amd64".to_string(),
-            &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
-            Some(format!("{}_requirements.txt", pyversion)),
-            None,
-            false,
-        )
-        .unwrap();
+    fn run_test(pyversion: &String, install: Option<String>) {
+        let body = format!("numpy\npandas",);
+        
+        match install.clone() {
+            Some(_install) => {
+                distribute(
+                    &pyversion,
+                    &"amd64".to_string(),
+                    &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
+                    None,
+                    Some(_install),
+                    false,
+                )
+                .unwrap();
+            },
+            None => {
+                write(format!("{}_requirements.txt", pyversion), body).unwrap();
+                distribute(
+                    &pyversion,
+                    &"amd64".to_string(),
+                    &format!("test_{}/python-{}-embed-amd64", pyversion, pyversion).to_string(),
+                    Some(format!("{}_requirements.txt", pyversion)),
+                    None,
+                    false,
+                )
+                .unwrap();
+            }
+        }
 
         let status = Command::new(format!(
             "test_{}\\python-{}-embed-amd64\\python.exe",
             pyversion, pyversion
         ))
         .arg("-c")
-        .arg("try:\n\timport numpy\nexcept:\n\traise")
+        .arg("try:\n\timport numpy\n\timport pandas\nexcept:\n\traise")
         .status()
         .expect("failed to execute process");
         assert!(status.success());
-        remove_file(format!("{}_requirements.txt", pyversion)).unwrap();
+        match install {
+            Some(_) => (),
+            None => remove_file(format!("{}_requirements.txt", pyversion)).unwrap()
+        }
         remove_dir_all(format!("test_{}", pyversion)).unwrap();
     }
 
     #[test]
+    fn test_3_11_2_no_requirements() {
+        run_test(&"3.11.2".to_string(), Some("numpy pandas".to_string()));
+    }
+    #[test]
     fn test_3_11_0() {
-        run_test(&"3.11.0".to_string());
+        run_test(&"3.11.0".to_string(), None);
     }
 
     #[test]
     fn test_3_10_8() {
-        run_test(&"3.10.8".to_string());
+        run_test(&"3.10.8".to_string(), None);
     }
 
     #[test]
     fn test_3_9_13() {
-        run_test(&"3.9.13".to_string());
+        run_test(&"3.9.13".to_string(), None);
     }
     #[test]
     fn test_3_8_10() {
-        run_test(&"3.8.10".to_string());
+        run_test(&"3.8.10".to_string(), None);
     }
     #[test]
     fn test_3_7_9() {
-        run_test(&"3.7.9".to_string());
+        run_test(&"3.7.9".to_string(), None);
     }
 }
